@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import 'package:qinglong_app/base/http/http.dart';
 import 'package:qinglong_app/base/ql_app_bar.dart';
 import 'package:qinglong_app/base/single_account_page.dart';
 import 'package:qinglong_app/base/theme.dart';
+import 'package:qinglong_app/base/ui/custom_bg.dart';
 import 'package:qinglong_app/base/ui/loading_widget.dart';
 import 'package:qinglong_app/main.dart';
 import 'package:qinglong_app/module/home/system_bean.dart';
@@ -12,6 +15,7 @@ import 'package:qinglong_app/module/stats/stats_bean.dart';
 import 'package:qinglong_app/utils/extension.dart';
 import 'package:qinglong_app/utils/utils.dart';
 
+/// 对齐青龙网页版仪表盘（2.21.0+ /api/dashboard/*）
 class StatsPage extends ConsumerStatefulWidget {
   const StatsPage({Key? key}) : super(key: key);
 
@@ -30,14 +34,15 @@ class StatsPageState extends ConsumerState<StatsPage> {
   DashboardOverview overview = DashboardOverview();
   List<TrendPoint> trend = <TrendPoint>[];
   RuntimeOverview runtime = RuntimeOverview();
-  List<RankItem> topFail = <RankItem>[];
   List<RankItem> topTime = <RankItem>[];
+  List<RankItem> topCount = <RankItem>[];
+  List<LabelStatItem> labels = <LabelStatItem>[];
+  DashboardSystemInfo? system;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // 等 home 拉完 system 版本，避免首屏误判
       for (int i = 0; i < 8; i++) {
         if (_trySystemBean() != null) break;
         await Future.delayed(const Duration(milliseconds: 150));
@@ -110,6 +115,8 @@ class StatsPageState extends ConsumerState<StatsPage> {
       final runtimeResp = await api.dashboardRuntime();
       final topTimeResp = await api.dashboardTopTime();
       final topCountResp = await api.dashboardTopCount();
+      final systemResp = await api.dashboardSystem();
+      final labelsResp = await api.dashboardLabels();
 
       if (!overviewResp.success) {
         final msg = (overviewResp.message ?? '').toLowerCase();
@@ -131,28 +138,15 @@ class StatsPageState extends ConsumerState<StatsPage> {
       final nextRuntime = runtimeResp.bean ?? RuntimeOverview();
       nextOverview.runningCount = nextRuntime.runningCount;
 
-      final nextTopCount = _parseRank(topCountResp);
-      final failCandidates = nextTopCount.where((e) {
-        final rate = double.tryParse(e.successRate) ?? 100;
-        return rate < 100 || e.failCount > 0;
-      }).toList();
-      failCandidates.sort((a, b) {
-        final af = a.failCount > 0
-            ? a.failCount
-            : ((100 - (double.tryParse(a.successRate) ?? 100)) * a.runCount).round();
-        final bf = b.failCount > 0
-            ? b.failCount
-            : ((100 - (double.tryParse(b.successRate) ?? 100)) * b.runCount).round();
-        return bf.compareTo(af);
-      });
-
       if (!mounted) return;
       setState(() {
         overview = nextOverview;
         runtime = nextRuntime;
         trend = _parseTrend(trendResp);
         topTime = _parseRank(topTimeResp);
-        topFail = failCandidates.take(5).toList();
+        topCount = _parseRank(topCountResp);
+        labels = _parseLabels(labelsResp);
+        system = systemResp.success ? systemResp.bean : null;
         loading = false;
         error = overviewResp.success ? null : (overviewResp.message ?? '加载失败');
         unsupported = false;
@@ -174,6 +168,11 @@ class StatsPageState extends ConsumerState<StatsPage> {
   List<RankItem> _parseRank(HttpResponse<String> resp) {
     if (!resp.success || resp.bean == null) return <RankItem>[];
     return parseRankList(resp.bean);
+  }
+
+  List<LabelStatItem> _parseLabels(HttpResponse<String> resp) {
+    if (!resp.success || resp.bean == null) return <LabelStatItem>[];
+    return parseLabelList(resp.bean);
   }
 
   Future<void> stopRunning(RunningInstanceItem item) async {
@@ -213,391 +212,477 @@ class StatsPageState extends ConsumerState<StatsPage> {
   Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider);
     return Scaffold(
+      backgroundColor: CustomBg.hasImage ? Colors.transparent : theme.themeColor.bg2Color(),
       appBar: QlAppBar(
-        title: '统计',
+        title: '仪表盘',
         canBack: false,
         actions: [
           CupertinoButton(
             padding: const EdgeInsets.symmetric(horizontal: 12),
+            minSize: 0,
             onPressed: () => loadData(showLoading: true),
-            child: Icon(
-              CupertinoIcons.refresh,
-              size: 20,
-              color: Theme.of(context).appBarTheme.iconTheme?.color,
-            ),
+            child: Icon(CupertinoIcons.refresh, size: 20, color: theme.primaryColor),
           ),
         ],
       ),
-      body: loading
-          ? const Center(child: LoadingWidget())
-          : RefreshIndicator(
-              key: refreshKey,
-              onRefresh: () => loadData(showLoading: false),
-              child: unsupported
-                  ? ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(24),
-                      children: [
-                        const SizedBox(height: 80),
-                        Icon(CupertinoIcons.chart_bar, size: 42, color: theme.themeColor.descColor()),
-                        const SizedBox(height: 16),
-                        Text(
-                          '当前青龙版本暂不支持任务统计',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: theme.themeColor.titleColor(),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '需要青龙 2.21.0 及以上版本\n（/api/dashboard 系列接口）',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 13, color: theme.themeColor.descColor(), height: 1.5),
-                        ),
-                      ],
-                    )
-                  : error != null && overview.todayRuns == 0 && trend.isEmpty
-                      ? ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(24),
-                          children: [
-                            const SizedBox(height: 80),
-                            Text(
-                              error!,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: theme.themeColor.descColor()),
-                            ),
-                            const SizedBox(height: 12),
-                            Center(
-                              child: TextButton(
-                                onPressed: () => loadData(showLoading: true),
-                                child: const Text('重试'),
-                              ),
-                            ),
-                          ],
-                        )
-                      : ListView(
-                          controller: _scrollController,
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
-                          children: [
-                            if (error != null)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Text(
-                                  error!,
-                                  style: TextStyle(fontSize: 12, color: Colors.orange.shade700),
-                                ),
-                              ),
-                            _sectionCard(
-                              theme,
-                              title: '今日运行总览',
-                              child: Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(child: _metric(theme, '总运行', '${overview.todayRuns}')),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: _metric(
-                                          theme,
-                                          '成功率',
-                                          '${overview.successRate}%',
-                                          valueColor: const Color(0xff3ecf8e),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _metric(
-                                          theme,
-                                          '成功 / 失败',
-                                          '${overview.todaySuccess} / ${overview.todayFail}',
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: _metric(
-                                          theme,
-                                          '运行中',
-                                          '${runtime.runningCount}',
-                                          valueColor: const Color(0xff3ecf8e),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _successBar(theme, overview),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Text(
-                                        _healthText(overview),
-                                        style: TextStyle(fontSize: 12, color: theme.themeColor.descColor()),
-                                      ),
-                                      const Spacer(),
-                                      Text(
-                                        '任务 ${overview.enabled}/${overview.total} 启用',
-                                        style: TextStyle(fontSize: 12, color: theme.themeColor.descColor()),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            _sectionCard(
-                              theme,
-                              title: '近 7 天运行趋势',
-                              child: trend.isEmpty
-                                  ? _emptyLine(theme, '暂无趋势数据')
-                                  : _TrendBars(points: trend, theme: theme),
-                            ),
-                            const SizedBox(height: 12),
-                            _sectionCard(
-                              theme,
-                              title: '运行实例 · ${runtime.runningCount} 个进行中',
-                              child: runtime.running.isEmpty
-                                  ? _emptyLine(
-                                      theme,
-                                      runtime.queuedCount > 0
-                                          ? '暂无运行中实例，排队 ${runtime.queuedCount}'
-                                          : '当前没有运行中的实例',
-                                    )
-                                  : Column(
-                                      children: runtime.running.map((item) {
-                                        return Padding(
-                                          padding: const EdgeInsets.only(bottom: 10),
-                                          child: Row(
-                                            children: [
-                                              Container(
-                                                width: 8,
-                                                height: 8,
-                                                decoration: BoxDecoration(
-                                                  color: theme.primaryColor,
-                                                  shape: BoxShape.circle,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 10),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      item.name,
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        color: theme.themeColor.titleColor(),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 2),
-                                                    Text(
-                                                      '已运行 ${_formatElapsed(item.elapsed)}'
-                                                      '${item.pid != null ? ' · pid ${item.pid}' : ''}',
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                        color: theme.themeColor.descColor(),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              TextButton(
-                                                style: TextButton.styleFrom(
-                                                  visualDensity: VisualDensity.compact,
-                                                  foregroundColor: Colors.redAccent,
-                                                ),
-                                                onPressed: () => stopRunning(item),
-                                                child: const Text('停止'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }).toList(),
-                                    ),
-                            ),
-                            const SizedBox(height: 12),
-                            _sectionCard(
-                              theme,
-                              title: '耗时 Top',
-                              child: topTime.isEmpty
-                                  ? _emptyLine(theme, '暂无数据')
-                                  : Column(
-                                      children: topTime.take(5).map((e) {
-                                        return _rankRow(
-                                          theme,
-                                          name: e.name,
-                                          desc: '平均 ${_formatMs(e.avgTime)} · 最长 ${_formatMs(e.maxTime)}',
-                                        );
-                                      }).toList(),
-                                    ),
-                            ),
-                            if (topFail.isNotEmpty) ...[
-                              const SizedBox(height: 12),
-                              _sectionCard(
-                                theme,
-                                title: '需关注（成功率偏低）',
-                                child: Column(
-                                  children: topFail.take(5).map((e) {
-                                    return _rankRow(
-                                      theme,
-                                      name: e.name,
-                                      desc: '运行 ${e.runCount} · 成功率 ${e.successRate}%',
-                                      danger: true,
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                            ],
-                            if (runtime.idleTasks.isNotEmpty) ...[
-                              const SizedBox(height: 12),
-                              _sectionCard(
-                                theme,
-                                title: '久未运行',
-                                child: Column(
-                                  children: runtime.idleTasks.take(5).map((e) {
-                                    return _rankRow(
-                                      theme,
-                                      name: e.name,
-                                      desc: '上次 ${e.lastRun}',
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                            ],
-                            SizedBox(height: MediaQuery.of(context).padding.bottom + 12),
-                          ],
-                        ),
-            ),
+      body: _buildBody(theme),
     );
   }
 
-  String _healthText(DashboardOverview o) {
-    if (o.todayRuns == 0) return '今日暂无运行记录';
-    final rate = double.tryParse(o.successRate) ?? 0;
-    if (rate >= 90) return '健康度良好';
-    if (rate >= 70) return '健康度一般';
-    return '失败偏多，建议排查';
-  }
+  Widget _buildBody(ThemeViewModel theme) {
+    if (loading) {
+      return const Center(child: LoadingWidget());
+    }
+    if (unsupported) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(CupertinoIcons.chart_bar, size: 42, color: theme.themeColor.descColor()),
+              const SizedBox(height: 12),
+              Text(
+                '仪表盘暂不可用',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: theme.themeColor.titleColor(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '需要青龙 2.21.0 及以上版本\n（/api/dashboard 系列接口）',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: theme.themeColor.descColor(), height: 1.5),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(error!, style: TextStyle(color: theme.themeColor.descColor())),
+            const SizedBox(height: 12),
+            CupertinoButton(
+              onPressed: () => loadData(showLoading: true),
+              child: Text('重试', style: TextStyle(color: theme.primaryColor)),
+            ),
+          ],
+        ),
+      );
+    }
 
-  Widget _emptyLine(ThemeViewModel theme, String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 18),
-      child: Center(
-        child: Text(text, style: TextStyle(color: theme.themeColor.descColor(), fontSize: 13)),
+    return RefreshIndicator(
+      key: refreshKey,
+      color: theme.primaryColor,
+      onRefresh: () => loadData(showLoading: false),
+      child: ListView(
+        controller: _scrollController,
+        padding: EdgeInsets.fromLTRB(
+          12,
+          8,
+          12,
+          24 + MediaQuery.of(context).padding.bottom + kBottomNavigationBarHeight,
+        ),
+        children: [
+          _overviewGrid(theme),
+          const SizedBox(height: 12),
+          _sectionCard(
+            theme,
+            title: '近 7 日趋势',
+            child: trend.isEmpty
+                ? _emptyLine(theme, '暂无数据')
+                : _TrendArea(points: trend, theme: theme),
+          ),
+          const SizedBox(height: 12),
+          _sectionCard(
+            theme,
+            title: '今日耗时 Top 5',
+            child: topTime.isEmpty
+                ? _emptyLine(theme, '暂无数据')
+                : Column(
+                    children: topTime.take(5).map((e) {
+                      return _rankRow(
+                        theme,
+                        rank: e.rank > 0 ? e.rank : (topTime.indexOf(e) + 1),
+                        name: e.name,
+                        right: e.avgTime > 0
+                            ? '均 ${_fmtMs(e.avgTime)} · 最长 ${_fmtMs(e.maxTime)}'
+                            : '-',
+                      );
+                    }).toList(),
+                  ),
+          ),
+          const SizedBox(height: 12),
+          _sectionCard(
+            theme,
+            title: '今日执行次数 Top 5',
+            child: topCount.isEmpty
+                ? _emptyLine(theme, '暂无数据')
+                : Column(
+                    children: topCount.take(5).map((e) {
+                      return _rankRow(
+                        theme,
+                        rank: e.rank > 0 ? e.rank : (topCount.indexOf(e) + 1),
+                        name: e.name,
+                        right:
+                            '${e.runCount} 次 · ${_fmtMs(e.avgTime)} · ${e.successRate}%',
+                      );
+                    }).toList(),
+                  ),
+          ),
+          if (labels.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _sectionCard(
+              theme,
+              title: '标签统计',
+              child: Column(
+                children: labels.map((e) {
+                  return _rankRow(
+                    theme,
+                    rank: null,
+                    name: e.label,
+                    right:
+                        '任务 ${e.count} · 今日 ${e.todayRuns} · ${e.successRate}% · ${_fmtMs(e.avgTime)}',
+                    chip: true,
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          _sectionCard(
+            theme,
+            title: '实时运行态',
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _miniTag(theme, '运行中 ${runtime.runningCount}', const Color(0xff1677ff)),
+                const SizedBox(width: 6),
+                _miniTag(theme, '排队 ${runtime.queuedCount}', const Color(0xfffa8c16)),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (runtime.running.isEmpty)
+                  _emptyLine(theme, '暂无运行中任务')
+                else
+                  ...runtime.running.map((item) {
+                    final same = runtime.running.where((r) => r.id == item.id).length;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        item.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: theme.themeColor.titleColor(),
+                                        ),
+                                      ),
+                                    ),
+                                    if (same > 1) ...[
+                                      const SizedBox(width: 4),
+                                      _miniTag(theme, '×$same', const Color(0xff1677ff)),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'pid ${item.pid ?? '-'} · 已运行 ${_fmtSec(item.elapsed)}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: theme.themeColor.descColor(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          CupertinoButton(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minSize: 28,
+                            onPressed: () => stopRunning(item),
+                            child: Text(
+                              '停止',
+                              style: TextStyle(fontSize: 13, color: theme.primaryColor),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                if (runtime.idleTasks.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '24小时未运行 (${runtime.idleTasks.length})',
+                    style: const TextStyle(fontSize: 13, color: Color(0xffff7a00)),
+                  ),
+                  const SizedBox(height: 6),
+                  ...runtime.idleTasks.map((e) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              e.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: theme.themeColor.titleColor(),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            e.lastRun,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.themeColor.descColor(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _sectionCard(
+            theme,
+            title: '系统资源',
+            child: system == null
+                ? _emptyLine(theme, '暂无系统信息')
+                : _systemBlock(theme, system!),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _sectionCard(ThemeViewModel theme, {required String title, required Widget child}) {
+  Widget _overviewGrid(ThemeViewModel theme) {
+    final items = <_Metric>[
+      _Metric('总任务', '${overview.total}', null),
+      _Metric('已启用', '${overview.enabled}', const Color(0xff1677ff)),
+      _Metric('今日执行', '${overview.todayRuns}', const Color(0xff1677ff)),
+      _Metric('成功率', '${overview.successRate}%', const Color(0xff52c41a)),
+      _Metric('今日成功', '${overview.todaySuccess}', const Color(0xff52c41a)),
+      _Metric('今日失败', '${overview.todayFail}', const Color(0xffff4d4f)),
+      _Metric(
+        '平均耗时',
+        overview.avgTime > 0 ? _fmtMs(overview.avgTime) : '-',
+        null,
+      ),
+      _Metric('已禁用', '${overview.disabled}', null),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, c) {
+        final w = (c.maxWidth - 8) / 2;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: items.map((m) {
+            return SizedBox(
+              width: w,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                decoration: BoxDecoration(
+                  color: theme.themeColor.settingBgColor().withOpacity(
+                        CustomBg.hasImage ? 0.88 : 1,
+                      ),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: theme.themeColor.settingBordorColor()),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      m.label,
+                      style: TextStyle(fontSize: 12, color: theme.themeColor.descColor()),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      m.value,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: m.color ?? theme.themeColor.titleColor(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _systemBlock(ThemeViewModel theme, DashboardSystemInfo s) {
+    final mem = double.tryParse(s.memUsagePercent) ?? 0;
+    final load0 = s.loadAvg.isNotEmpty ? s.loadAvg[0].toStringAsFixed(2) : '-';
+    return Row(
+      children: [
+        SizedBox(
+          width: 110,
+          height: 110,
+          child: CustomPaint(
+            painter: _GaugePainter(
+              percent: mem.clamp(0, 100) / 100.0,
+              color: theme.primaryColor,
+              track: theme.themeColor.bg2Color(),
+              textColor: theme.themeColor.titleColor(),
+              label: '内存 ${s.memUsagePercent}%',
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _kv(theme, '系统运行', _fmtSec(s.uptime)),
+              const SizedBox(height: 6),
+              _kv(theme, '堆内存', '${s.heapUsed} MB'),
+              const SizedBox(height: 6),
+              Text(
+                '负载 1m: $load0 · CPU ${s.cpus} 核 · ${s.platform}',
+                style: TextStyle(fontSize: 12, color: theme.themeColor.descColor(), height: 1.4),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _kv(ThemeViewModel theme, String k, String v) {
+    return Row(
+      children: [
+        Text(k, style: TextStyle(fontSize: 12, color: theme.themeColor.descColor())),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            v,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: theme.themeColor.titleColor(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _sectionCard(
+    ThemeViewModel theme, {
+    required String title,
+    required Widget child,
+    Widget? trailing,
+  }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       decoration: BoxDecoration(
-        color: theme.themeColor.settingBgColor(),
-        borderRadius: BorderRadius.circular(14),
+        color: theme.themeColor.settingBgColor().withOpacity(CustomBg.hasImage ? 0.88 : 1),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: theme.themeColor.settingBordorColor()),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: theme.themeColor.descColor(),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: theme.themeColor.descColor(),
+                  ),
+                ),
+              ),
+              if (trailing != null) trailing,
+            ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           child,
         ],
       ),
     );
   }
 
-  Widget _metric(ThemeViewModel theme, String k, String v, {Color? valueColor}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: theme.themeColor.bg2Color(),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(k, style: TextStyle(fontSize: 12, color: theme.themeColor.descColor())),
-          const SizedBox(height: 6),
-          Text(
-            v,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: valueColor ?? theme.themeColor.titleColor(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _successBar(ThemeViewModel theme, DashboardOverview o) {
-    final rate = (double.tryParse(o.successRate) ?? 0).clamp(0, 100) / 100.0;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: LinearProgressIndicator(
-        value: o.todayRuns == 0 ? 0 : rate,
-        minHeight: 8,
-        backgroundColor: theme.themeColor.bg2Color(),
-        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xff3ecf8e)),
-      ),
-    );
-  }
-
   Widget _rankRow(
     ThemeViewModel theme, {
+    int? rank,
     required String name,
-    required String desc,
-    bool danger = false,
+    required String right,
+    bool chip = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: danger ? Colors.redAccent : const Color(0xff3ecf8e),
-              shape: BoxShape.circle,
+          if (rank != null)
+            SizedBox(
+              width: 22,
+              child: Text(
+                '$rank',
+                style: TextStyle(fontSize: 13, color: theme.themeColor.descColor()),
+              ),
+            )
+          else if (chip)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: theme.primaryColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                name,
+                style: TextStyle(fontSize: 12, color: theme.primaryColor),
+              ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 14, color: theme.themeColor.titleColor()),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  desc,
-                  style: TextStyle(fontSize: 12, color: theme.themeColor.descColor()),
-                ),
-              ],
+          if (!chip)
+            Expanded(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 14, color: theme.themeColor.titleColor()),
+              ),
+            )
+          else
+            const Spacer(),
+          Flexible(
+            child: Text(
+              right,
+              textAlign: TextAlign.right,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: theme.themeColor.descColor()),
             ),
           ),
         ],
@@ -605,90 +690,263 @@ class StatsPageState extends ConsumerState<StatsPage> {
     );
   }
 
-  String _formatElapsed(int seconds) {
-    if (seconds < 0) seconds = 0;
-    final h = seconds ~/ 3600;
-    final m = (seconds % 3600) ~/ 60;
-    final s = seconds % 60;
-    if (h > 0) {
-      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-    }
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  Widget _miniTag(ThemeViewModel theme, String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(text, style: TextStyle(fontSize: 11, color: color)),
+    );
   }
 
-  String _formatMs(int ms) {
-    if (ms <= 0) return '0s';
-    if (ms < 1000) return '${ms}ms';
-    final sec = (ms / 1000).round();
-    if (sec < 60) return '${sec}s';
-    final m = sec ~/ 60;
-    final s = sec % 60;
-    return '${m}m${s}s';
+  Widget _emptyLine(ThemeViewModel theme, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Center(
+        child: Text(text, style: TextStyle(color: theme.themeColor.descColor(), fontSize: 13)),
+      ),
+    );
+  }
+
+  String _fmtMs(int ms) {
+    if (ms <= 0) return '-';
+    final s = ms / 1000.0;
+    if (s < 60) return '${s.toStringAsFixed(1)}s';
+    final m = (s / 60).floor();
+    final rem = (s % 60).round();
+    return '${m}m ${rem}s';
+  }
+
+  String _fmtSec(int s) {
+    if (s <= 0) return '-';
+    if (s < 60) return '${s}s';
+    if (s < 3600) return '${s ~/ 60}m ${s % 60}s';
+    final h = s ~/ 3600;
+    final m = (s % 3600) ~/ 60;
+    return '${h}h ${m}m';
   }
 }
 
-class _TrendBars extends StatelessWidget {
+class _Metric {
+  final String label;
+  final String value;
+  final Color? color;
+  _Metric(this.label, this.value, this.color);
+}
+
+class _TrendArea extends StatelessWidget {
   final List<TrendPoint> points;
   final ThemeViewModel theme;
 
-  const _TrendBars({required this.points, required this.theme});
+  const _TrendArea({required this.points, required this.theme});
 
   @override
   Widget build(BuildContext context) {
-    final maxTotal = points.fold<int>(0, (p, e) => e.total > p ? e.total : p);
-    final maxY = maxTotal <= 0 ? 1 : maxTotal;
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          height: 110,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: points.map((p) {
-              final h = (p.total / maxY) * 90.0;
-              final failH = p.total == 0 ? 0.0 : (p.fail / p.total) * h;
-              final successH = h - failH;
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Container(
-                        height: successH < 0 ? 0 : successH,
-                        decoration: BoxDecoration(
-                          color: const Color(0xff3ecf8e).withOpacity(0.9),
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                        ),
-                      ),
-                      Container(
-                        height: failH < 2 && p.fail > 0 ? 2 : failH,
-                        color: Colors.redAccent.withOpacity(0.85),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-        const SizedBox(height: 6),
         Row(
-          children: points.map((p) {
-            return Expanded(
-              child: Text(
-                p.date,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 10, color: theme.themeColor.descColor()),
-              ),
-            );
-          }).toList(),
+          children: const [
+            _LegendDot(color: Color(0xff1677ff), label: '总执行'),
+            SizedBox(width: 12),
+            _LegendDot(color: Color(0xff52c41a), label: '成功'),
+            SizedBox(width: 12),
+            _LegendDot(color: Color(0xffff4d4f), label: '失败'),
+          ],
         ),
-        const SizedBox(height: 6),
-        Text(
-          '绿=成功  红=失败',
-          style: TextStyle(fontSize: 11, color: theme.themeColor.descColor()),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 180,
+          width: double.infinity,
+          child: CustomPaint(
+            painter: _TrendPainter(
+              points: points,
+              totalColor: const Color(0xff1677ff),
+              successColor: const Color(0xff52c41a),
+              failColor: const Color(0xffff4d4f),
+              gridColor: theme.themeColor.settingBordorColor(),
+              labelColor: theme.themeColor.descColor(),
+            ),
+          ),
         ),
       ],
     );
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  final Color color;
+  final String label;
+  const _LegendDot({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(fontSize: 11, color: color)),
+      ],
+    );
+  }
+}
+
+class _TrendPainter extends CustomPainter {
+  final List<TrendPoint> points;
+  final Color totalColor;
+  final Color successColor;
+  final Color failColor;
+  final Color gridColor;
+  final Color labelColor;
+
+  _TrendPainter({
+    required this.points,
+    required this.totalColor,
+    required this.successColor,
+    required this.failColor,
+    required this.gridColor,
+    required this.labelColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
+    const left = 28.0;
+    const bottom = 22.0;
+    const top = 8.0;
+    final chartW = size.width - left - 8;
+    final chartH = size.height - bottom - top;
+    final maxY = points
+        .map((e) => math.max(e.total, math.max(e.success, e.fail)))
+        .fold<int>(1, (a, b) => a > b ? a : b)
+        .toDouble();
+
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    for (int i = 0; i <= 3; i++) {
+      final y = top + chartH * i / 3;
+      canvas.drawLine(Offset(left, y), Offset(left + chartW, y), gridPaint);
+    }
+
+    Path buildPath(List<double> ys) {
+      final path = Path();
+      for (int i = 0; i < ys.length; i++) {
+        final x = left + (ys.length == 1 ? chartW / 2 : chartW * i / (ys.length - 1));
+        final y = top + chartH * (1 - (ys[i] / maxY));
+        if (i == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+      }
+      return path;
+    }
+
+    void drawSeries(List<double> ys, Color color) {
+      final line = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      final path = buildPath(ys);
+      canvas.drawPath(path, line);
+      // soft area
+      final area = Path.from(path)
+        ..lineTo(left + chartW, top + chartH)
+        ..lineTo(left, top + chartH)
+        ..close();
+      canvas.drawPath(
+        area,
+        Paint()..color = color.withOpacity(0.10),
+      );
+    }
+
+    drawSeries(points.map((e) => e.total.toDouble()).toList(), totalColor);
+    drawSeries(points.map((e) => e.success.toDouble()).toList(), successColor);
+    drawSeries(points.map((e) => e.fail.toDouble()).toList(), failColor);
+
+    final tp = TextPainter(textDirection: TextDirection.ltr);
+    for (int i = 0; i < points.length; i++) {
+      final x = left + (points.length == 1 ? chartW / 2 : chartW * i / (points.length - 1));
+      final label = points[i].date.length >= 5
+          ? points[i].date.substring(points[i].date.length - 5)
+          : points[i].date;
+      tp.text = TextSpan(text: label, style: TextStyle(fontSize: 10, color: labelColor));
+      tp.layout();
+      tp.paint(canvas, Offset(x - tp.width / 2, size.height - 16));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TrendPainter oldDelegate) {
+    return oldDelegate.points != points;
+  }
+}
+
+class _GaugePainter extends CustomPainter {
+  final double percent;
+  final Color color;
+  final Color track;
+  final Color textColor;
+  final String label;
+
+  _GaugePainter({
+    required this.percent,
+    required this.color,
+    required this.track,
+    required this.textColor,
+    required this.label,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height / 2 + 6);
+    final r = math.min(size.width, size.height) / 2 - 6;
+    const start = math.pi * 0.75;
+    const sweep = math.pi * 1.5;
+
+    final trackPaint = Paint()
+      ..color = track
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 10
+      ..strokeCap = StrokeCap.round;
+    final valuePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 10
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(Rect.fromCircle(center: c, radius: r), start, sweep, false, trackPaint);
+    canvas.drawArc(
+      Rect.fromCircle(center: c, radius: r),
+      start,
+      sweep * percent.clamp(0.0, 1.0),
+      false,
+      valuePaint,
+    );
+
+    final tp = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: TextStyle(fontSize: 12, color: textColor, fontWeight: FontWeight.w600),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout(maxWidth: size.width);
+    tp.paint(canvas, Offset((size.width - tp.width) / 2, c.dy - 6));
+  }
+
+  @override
+  bool shouldRepaint(covariant _GaugePainter oldDelegate) {
+    return oldDelegate.percent != percent || oldDelegate.label != label;
   }
 }

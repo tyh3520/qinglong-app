@@ -14,6 +14,7 @@ import 'package:qinglong_app/base/single_account_page.dart';
 import 'package:qinglong_app/base/sp_const.dart';
 import 'package:qinglong_app/base/theme.dart';
 import 'package:qinglong_app/base/ui/animated_indexed_switch.dart';
+import 'package:qinglong_app/base/ui/custom_bg.dart';
 import 'package:qinglong_app/base/ui/loading_widget.dart';
 import 'package:qinglong_app/utils/extension.dart';
 import 'package:qinglong_app/utils/sp_utils.dart';
@@ -185,13 +186,17 @@ class QlAppState extends ConsumerState<QlApp> with WidgetsBindingObserver {
         EasyLoading.instance.indicatorWidget = const LoadingWidget(
           color: Colors.white,
         );
+        // 监听主题刷新时同步重建背景层（设置里改图后 setState 即可）
+        ref.watch(themeProvider);
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(
             textScaleFactor: textScaleFactor,
           ),
           child: ScrollConfiguration(
             behavior: const ScrollPhysicsConfig(),
-            child: child ?? Container(),
+            child: AppBackgroundShell(
+              child: child ?? Container(),
+            ),
           ),
         );
       }),

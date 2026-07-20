@@ -113,6 +113,8 @@ class Url {
   get dashboardRuntime => getIt<UserInfoViewModel>(instanceName: index.toString()).useSecretLogined ? "/open/dashboard/runtime" : "/api/dashboard/runtime";
   get dashboardTopTime => getIt<UserInfoViewModel>(instanceName: index.toString()).useSecretLogined ? "/open/dashboard/top-time" : "/api/dashboard/top-time";
   get dashboardTopCount => getIt<UserInfoViewModel>(instanceName: index.toString()).useSecretLogined ? "/open/dashboard/top-count" : "/api/dashboard/top-count";
+  get dashboardSystem => getIt<UserInfoViewModel>(instanceName: index.toString()).useSecretLogined ? "/open/dashboard/system" : "/api/dashboard/system";
+  get dashboardLabels => getIt<UserInfoViewModel>(instanceName: index.toString()).useSecretLogined ? "/open/dashboard/labels" : "/api/dashboard/labels";
 
   resetAppKey(dynamic id) {
     return getIt<UserInfoViewModel>(instanceName: index.toString()).useSecretLogined

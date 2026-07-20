@@ -709,6 +709,41 @@ class Api {
       {},
     );
   }
+
+  Future<HttpResponse<DashboardSystemInfo>> dashboardSystem() async {
+    final resp = await getIt<Http>(instanceName: index.toString()).get<String>(
+      getIt<Url>(instanceName: index.toString()).dashboardSystem,
+      {},
+    );
+    if (!resp.success) {
+      return HttpResponse<DashboardSystemInfo>(
+        success: false,
+        code: resp.code,
+        message: resp.message,
+      );
+    }
+    try {
+      final data = parseJsonObject(resp.bean ?? '{}');
+      return HttpResponse<DashboardSystemInfo>(
+        success: true,
+        code: 200,
+        bean: DashboardSystemInfo.fromJson(data),
+      );
+    } catch (e) {
+      return HttpResponse<DashboardSystemInfo>(
+        success: false,
+        code: -1000,
+        message: 'json解析失败',
+      );
+    }
+  }
+
+  Future<HttpResponse<String>> dashboardLabels() async {
+    return await getIt<Http>(instanceName: index.toString()).get<String>(
+      getIt<Url>(instanceName: index.toString()).dashboardLabels,
+      {},
+    );
+  }
 }
 
 Map<String, dynamic> parseJsonObject(String raw) {

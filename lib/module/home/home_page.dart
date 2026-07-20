@@ -11,6 +11,7 @@ import 'package:qinglong_app/base/single_account_page.dart';
 import 'package:qinglong_app/base/sp_const.dart';
 import 'package:qinglong_app/base/theme.dart';
 import 'package:qinglong_app/base/ui/bottom_nav_bar.dart';
+import 'package:qinglong_app/base/ui/custom_bg.dart';
 import 'package:qinglong_app/main.dart';
 import 'package:qinglong_app/module/config/config_page.dart';
 import 'package:qinglong_app/module/env/env_page.dart';
@@ -223,6 +224,8 @@ class HomePageState extends ConsumerState<HomePage> {
           children: [
             RepaintBoundary(
               child: Scaffold(
+                backgroundColor:
+                    CustomBg.hasImage ? Colors.transparent : null,
                 extendBody: true,
                 body: IndexedStack(
                   index: ref.watch<int>(SingleAccountPageState.ofHomeIndexProvider(context)(

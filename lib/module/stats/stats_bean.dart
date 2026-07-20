@@ -214,3 +214,93 @@ List<RankItem> parseRankList(dynamic data) {
       .map((e) => RankItem.fromJson(Map<String, dynamic>.from(e)))
       .toList();
 }
+
+class DashboardSystemInfo {
+  String platform;
+  int uptime;
+  int memTotal;
+  int memFree;
+  String memUsagePercent;
+  int heapUsed;
+  int heapTotal;
+  List<double> loadAvg;
+  int cpus;
+
+  DashboardSystemInfo({
+    this.platform = '',
+    this.uptime = 0,
+    this.memTotal = 0,
+    this.memFree = 0,
+    this.memUsagePercent = '0',
+    this.heapUsed = 0,
+    this.heapTotal = 0,
+    List<double>? loadAvg,
+    this.cpus = 0,
+  }) : loadAvg = loadAvg ?? <double>[];
+
+  factory DashboardSystemInfo.fromJson(Map<String, dynamic> json) {
+    final loadRaw = json['loadAvg'];
+    final loads = <double>[];
+    if (loadRaw is List) {
+      for (final v in loadRaw) {
+        if (v is num) {
+          loads.add(v.toDouble());
+        } else {
+          loads.add(double.tryParse(v.toString()) ?? 0);
+        }
+      }
+    }
+    return DashboardSystemInfo(
+      platform: (json['platform'] ?? '').toString(),
+      uptime: _asInt(json['uptime']),
+      memTotal: _asInt(json['memTotal']),
+      memFree: _asInt(json['memFree']),
+      memUsagePercent: (json['memUsagePercent'] ?? '0').toString(),
+      heapUsed: _asInt(json['heapUsed']),
+      heapTotal: _asInt(json['heapTotal']),
+      loadAvg: loads,
+      cpus: _asInt(json['cpus']),
+    );
+  }
+}
+
+class LabelStatItem {
+  String label;
+  int count;
+  int todayRuns;
+  String successRate;
+  int avgTime;
+
+  LabelStatItem({
+    this.label = '',
+    this.count = 0,
+    this.todayRuns = 0,
+    this.successRate = '0',
+    this.avgTime = 0,
+  });
+
+  factory LabelStatItem.fromJson(Map<String, dynamic> json) {
+    return LabelStatItem(
+      label: (json['label'] ?? '').toString(),
+      count: _asInt(json['count']),
+      todayRuns: _asInt(json['todayRuns']),
+      successRate: (json['successRate'] ?? '0').toString(),
+      avgTime: _asInt(json['avgTime']),
+    );
+  }
+}
+
+List<LabelStatItem> parseLabelList(dynamic data) {
+  if (data is String) {
+    try {
+      data = jsonDecode(data);
+    } catch (_) {
+      return <LabelStatItem>[];
+    }
+  }
+  if (data is! List) return <LabelStatItem>[];
+  return data
+      .whereType<Map>()
+      .map((e) => LabelStatItem.fromJson(Map<String, dynamic>.from(e)))
+      .toList();
+}
