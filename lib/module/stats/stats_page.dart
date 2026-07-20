@@ -326,7 +326,7 @@ class StatsPageState extends ConsumerState<StatsPage> {
                                           theme,
                                           '运行中',
                                           '${runtime.runningCount}',
-                                          valueColor: theme.primaryColor,
+                                          valueColor: const Color(0xff3ecf8e),
                                         ),
                                       ),
                                     ],
