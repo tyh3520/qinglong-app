@@ -601,12 +601,14 @@ class StatsPageState extends ConsumerState<StatsPage> {
     );
   }
 
-  /// 对齐网页版 Table：# / 任务名 / 平均耗时 / 最长单次
+  /// 对齐网页版 Table：# / 定时任务 / 平均耗时 / 最长单次
   Widget _topTimeTable(ThemeViewModel theme, List<RankItem> items) {
+    // 手机宽：数值列固定右对齐，名称列取剩余宽度（类 antd small table）
+    const widths = <double?>[32.0, null, 72.0, 72.0];
     return Column(
       children: [
-        _tableHeader(theme, const ['#', '定时任务', '平均耗时', '最长单次'], const [28.0, null, 78.0, 78.0]),
-        const SizedBox(height: 6),
+        _tableHeader(theme, const ['#', '定时任务', '平均耗时', '最长单次'], widths),
+        Divider(height: 12, thickness: 0.5, color: theme.themeColor.settingBordorColor()),
         ...List.generate(items.length, (i) {
           final e = items[i];
           final rank = e.rank > 0 ? e.rank : i + 1;
@@ -618,20 +620,22 @@ class StatsPageState extends ConsumerState<StatsPage> {
               e.avgTime > 0 ? _fmtMs(e.avgTime) : '-',
               e.maxTime > 0 ? _fmtMs(e.maxTime) : '-',
             ],
-            widths: const [28.0, null, 78.0, 78.0],
+            widths: widths,
             emphasize: 1,
+            zebra: i.isOdd,
           );
         }),
       ],
     );
   }
 
-  /// 对齐网页版 Table：# / 任务名 / 次数 / 平均耗时 / 成功率
+  /// 对齐网页版 Table：# / 定时任务 / 次数 / 平均耗时 / 成功率
   Widget _topCountTable(ThemeViewModel theme, List<RankItem> items) {
+    const widths = <double?>[32.0, null, 40.0, 68.0, 54.0];
     return Column(
       children: [
-        _tableHeader(theme, const ['#', '定时任务', '次数', '平均耗时', '成功率'], const [28.0, null, 44.0, 72.0, 58.0]),
-        const SizedBox(height: 6),
+        _tableHeader(theme, const ['#', '定时任务', '次数', '平均耗时', '成功率'], widths),
+        Divider(height: 12, thickness: 0.5, color: theme.themeColor.settingBordorColor()),
         ...List.generate(items.length, (i) {
           final e = items[i];
           final rank = e.rank > 0 ? e.rank : i + 1;
@@ -644,8 +648,9 @@ class StatsPageState extends ConsumerState<StatsPage> {
               e.avgTime > 0 ? _fmtMs(e.avgTime) : '-',
               '${e.successRate}%',
             ],
-            widths: const [28.0, null, 44.0, 72.0, 58.0],
+            widths: widths,
             emphasize: 1,
+            zebra: i.isOdd,
           );
         }),
       ],
@@ -725,17 +730,27 @@ class StatsPageState extends ConsumerState<StatsPage> {
     return Row(
       children: List.generate(titles.length, (i) {
         final w = widths[i];
+        final isFirst = i == 0;
+        final isFlex = w == null;
+        final align = isFlex || isFirst ? TextAlign.left : TextAlign.right;
         final child = Text(
           titles[i],
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          textAlign: w == null ? TextAlign.left : TextAlign.right,
-          style: TextStyle(fontSize: 11, color: theme.themeColor.descColor()),
+          textAlign: align,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: theme.themeColor.descColor(),
+          ),
         );
-        if (w == null) {
+        if (isFlex) {
           return Expanded(child: child);
         }
-        return SizedBox(width: w, child: child);
+        return SizedBox(
+          width: w,
+          child: isFirst ? child : Align(alignment: Alignment.centerRight, child: child),
+        );
       }),
     );
   }
@@ -745,29 +760,52 @@ class StatsPageState extends ConsumerState<StatsPage> {
     required List<String> cells,
     required List<double?> widths,
     int emphasize = -1,
+    bool zebra = false,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: List.generate(cells.length, (i) {
-          final w = widths[i];
-          final isName = i == emphasize;
-          final child = Text(
-            cells[i],
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: isName || w == null ? TextAlign.left : TextAlign.right,
-            style: TextStyle(
-              fontSize: isName ? 13 : 12,
-              color: isName ? theme.themeColor.titleColor() : theme.themeColor.descColor(),
+    final row = Row(
+      children: List.generate(cells.length, (i) {
+        final w = widths[i];
+        final isName = i == emphasize;
+        final isFirst = i == 0;
+        final isFlex = w == null;
+        final align = isFlex || isFirst || isName ? TextAlign.left : TextAlign.right;
+        final child = Text(
+          cells[i],
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: align,
+          style: TextStyle(
+            fontSize: isName ? 13 : 12,
+            height: 1.25,
+            color: isName
+                ? theme.themeColor.titleColor()
+                : (isFirst ? theme.themeColor.descColor() : theme.themeColor.titleColor()),
+          ),
+        );
+        if (isFlex) {
+          return Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: child,
             ),
           );
-          if (w == null) {
-            return Expanded(child: child);
-          }
-          return SizedBox(width: w, child: child);
-        }),
+        }
+        return SizedBox(
+          width: w,
+          child: isFirst || isName
+              ? child
+              : Align(alignment: Alignment.centerRight, child: child),
+        );
+      }),
+    );
+    return Container(
+      margin: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+      decoration: BoxDecoration(
+        color: zebra ? theme.themeColor.settingBordorColor().withOpacity(0.18) : null,
+        borderRadius: BorderRadius.circular(4),
       ),
+      child: row,
     );
   }
 
@@ -839,7 +877,8 @@ class _TrendArea extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 180,
+          // 网页 Area 高 260；手机稍低，但留足够 y 轴刻度空间
+          height: 220,
           width: double.infinity,
           child: CustomPaint(
             painter: _TrendPainter(
@@ -899,39 +938,77 @@ class _TrendPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (points.isEmpty) return;
-    const left = 28.0;
-    const bottom = 22.0;
-    const top = 8.0;
-    final chartW = size.width - left - 8;
-    final chartH = size.height - bottom - top;
-    final maxY = points
+
+    // 预先计算 y 轴刻度，再决定左侧留白（对齐网页 Area yAxis label）
+    final rawMax = points
         .map((e) => math.max(e.total, math.max(e.success, e.fail)))
-        .fold<int>(1, (a, b) => a > b ? a : b)
-        .toDouble();
+        .fold<int>(0, (a, b) => a > b ? a : b);
+    final maxY = _niceMax(rawMax <= 0 ? 1 : rawMax).toDouble();
+    const yTicks = 4; // 0..max 共 5 根网格线
+
+    final yLabels = <String>[];
+    for (int i = 0; i <= yTicks; i++) {
+      final v = maxY * (yTicks - i) / yTicks;
+      yLabels.add(_fmtY(v));
+    }
+    final measure = TextPainter(textDirection: TextDirection.ltr);
+    double maxLabelW = 0;
+    for (final t in yLabels) {
+      measure.text = TextSpan(text: t, style: TextStyle(fontSize: 10, color: labelColor));
+      measure.layout();
+      if (measure.width > maxLabelW) maxLabelW = measure.width;
+    }
+
+    final left = math.max(28.0, maxLabelW + 10);
+    const right = 8.0;
+    const bottom = 24.0;
+    const top = 10.0;
+    final chartW = size.width - left - right;
+    final chartH = size.height - bottom - top;
+    if (chartW <= 0 || chartH <= 0) return;
 
     final gridPaint = Paint()
+      ..color = gridColor.withOpacity(0.85)
+      ..strokeWidth = 1;
+    final axisPaint = Paint()
       ..color = gridColor
       ..strokeWidth = 1;
-    for (int i = 0; i <= 3; i++) {
-      final y = top + chartH * i / 3;
+
+    // y 轴网格 + 刻度数字
+    final tp = TextPainter(textDirection: TextDirection.ltr);
+    for (int i = 0; i <= yTicks; i++) {
+      final y = top + chartH * i / yTicks;
       canvas.drawLine(Offset(left, y), Offset(left + chartW, y), gridPaint);
+      final text = yLabels[i];
+      tp.text = TextSpan(text: text, style: TextStyle(fontSize: 10, color: labelColor));
+      tp.layout();
+      tp.paint(canvas, Offset(left - 6 - tp.width, y - tp.height / 2));
     }
+
+    // y 轴 / x 轴 基线
+    canvas.drawLine(Offset(left, top), Offset(left, top + chartH), axisPaint);
+    canvas.drawLine(Offset(left, top + chartH), Offset(left + chartW, top + chartH), axisPaint);
 
     Path buildPath(List<double> ys) {
       final path = Path();
       for (int i = 0; i < ys.length; i++) {
         final x = left + (ys.length == 1 ? chartW / 2 : chartW * i / (ys.length - 1));
-        final y = top + chartH * (1 - (ys[i] / maxY));
+        final y = top + chartH * (1 - (ys[i] / maxY).clamp(0.0, 1.0));
         if (i == 0) {
           path.moveTo(x, y);
         } else {
-          path.lineTo(x, y);
+          // 简单平滑：中点二次贝塞尔（接近网页 smooth area）
+          final prevX = left + (ys.length == 1 ? chartW / 2 : chartW * (i - 1) / (ys.length - 1));
+          final prevY = top + chartH * (1 - (ys[i - 1] / maxY).clamp(0.0, 1.0));
+          final cx = (prevX + x) / 2;
+          path.cubicTo(cx, prevY, cx, y, x, y);
         }
       }
       return path;
     }
 
     void drawSeries(List<double> ys, Color color) {
+      if (ys.isEmpty) return;
       final line = Paint()
         ..color = color
         ..style = PaintingStyle.stroke
@@ -939,32 +1016,78 @@ class _TrendPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
       final path = buildPath(ys);
-      canvas.drawPath(path, line);
-      // soft area
+      // soft area under curve
+      final lastX = left + (ys.length == 1 ? chartW / 2 : chartW);
       final area = Path.from(path)
-        ..lineTo(left + chartW, top + chartH)
+        ..lineTo(lastX, top + chartH)
         ..lineTo(left, top + chartH)
         ..close();
-      canvas.drawPath(
-        area,
-        Paint()..color = color.withOpacity(0.10),
-      );
+      canvas.drawPath(area, Paint()..color = color.withOpacity(0.12));
+      canvas.drawPath(path, line);
+
+      // 端点小圆点，更像 antd plots
+      final dotFill = Paint()..color = color;
+      final dotBorder = Paint()
+        ..color = const Color(0xffffffff)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2;
+      for (int i = 0; i < ys.length; i++) {
+        final x = left + (ys.length == 1 ? chartW / 2 : chartW * i / (ys.length - 1));
+        final y = top + chartH * (1 - (ys[i] / maxY).clamp(0.0, 1.0));
+        canvas.drawCircle(Offset(x, y), 2.6, dotFill);
+        canvas.drawCircle(Offset(x, y), 2.6, dotBorder);
+      }
     }
 
     drawSeries(points.map((e) => e.total.toDouble()).toList(), totalColor);
     drawSeries(points.map((e) => e.success.toDouble()).toList(), successColor);
     drawSeries(points.map((e) => e.fail.toDouble()).toList(), failColor);
 
-    final tp = TextPainter(textDirection: TextDirection.ltr);
+    // x 轴日期
     for (int i = 0; i < points.length; i++) {
       final x = left + (points.length == 1 ? chartW / 2 : chartW * i / (points.length - 1));
-      final label = points[i].date.length >= 5
-          ? points[i].date.substring(points[i].date.length - 5)
-          : points[i].date;
+      final raw = points[i].date;
+      // 网页 xField 用原始 date；手机窄展示 MM-DD
+      final label = raw.length >= 10
+          ? raw.substring(5, 10)
+          : (raw.length >= 5 ? raw.substring(raw.length - 5) : raw);
       tp.text = TextSpan(text: label, style: TextStyle(fontSize: 10, color: labelColor));
       tp.layout();
-      tp.paint(canvas, Offset(x - tp.width / 2, size.height - 16));
+      var px = x - tp.width / 2;
+      if (px < left) px = left;
+      if (px + tp.width > left + chartW) px = left + chartW - tp.width;
+      tp.paint(canvas, Offset(px, size.height - 16));
     }
+  }
+
+  /// 把最大值收整到好读刻度
+  static int _niceMax(int raw) {
+    if (raw <= 1) return 1;
+    if (raw <= 5) return 5;
+    if (raw <= 10) return 10;
+    final exp = (math.log(raw) / math.ln10).floor();
+    final base = math.pow(10, exp).toDouble();
+    final n = raw / base;
+    double nice;
+    if (n <= 1) {
+      nice = 1;
+    } else if (n <= 2) {
+      nice = 2;
+    } else if (n <= 5) {
+      nice = 5;
+    } else {
+      nice = 10;
+    }
+    return (nice * base).round();
+  }
+
+  static String _fmtY(double v) {
+    if (v >= 1000) {
+      final k = v / 1000;
+      return k == k.roundToDouble() ? '${k.toInt()}k' : '${k.toStringAsFixed(1)}k';
+    }
+    if (v == v.roundToDouble()) return '${v.toInt()}';
+    return v.toStringAsFixed(1);
   }
 
   @override
