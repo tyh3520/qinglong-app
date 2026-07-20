@@ -224,8 +224,7 @@ class HomePageState extends ConsumerState<HomePage> {
           children: [
             RepaintBoundary(
               child: Scaffold(
-                backgroundColor:
-                    CustomBg.hasImage ? Colors.transparent : null,
+                backgroundColor: CustomBg.pageBg(null),
                 extendBody: true,
                 body: IndexedStack(
                   index: ref.watch<int>(SingleAccountPageState.ofHomeIndexProvider(context)(

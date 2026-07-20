@@ -212,7 +212,7 @@ class StatsPageState extends ConsumerState<StatsPage> {
   Widget build(BuildContext context) {
     final theme = ref.watch(themeProvider);
     return Scaffold(
-      backgroundColor: CustomBg.hasImage ? Colors.transparent : theme.themeColor.bg2Color(),
+      backgroundColor: CustomBg.pageBg(theme.themeColor.bg2Color()),
       appBar: QlAppBar(
         title: '仪表盘',
         canBack: false,
@@ -305,18 +305,7 @@ class StatsPageState extends ConsumerState<StatsPage> {
             title: '今日耗时 Top 5',
             child: topTime.isEmpty
                 ? _emptyLine(theme, '暂无数据')
-                : Column(
-                    children: topTime.take(5).map((e) {
-                      return _rankRow(
-                        theme,
-                        rank: e.rank > 0 ? e.rank : (topTime.indexOf(e) + 1),
-                        name: e.name,
-                        right: e.avgTime > 0
-                            ? '均 ${_fmtMs(e.avgTime)} · 最长 ${_fmtMs(e.maxTime)}'
-                            : '-',
-                      );
-                    }).toList(),
-                  ),
+                : _topTimeTable(theme, topTime.take(5).toList()),
           ),
           const SizedBox(height: 12),
           _sectionCard(
@@ -324,35 +313,14 @@ class StatsPageState extends ConsumerState<StatsPage> {
             title: '今日执行次数 Top 5',
             child: topCount.isEmpty
                 ? _emptyLine(theme, '暂无数据')
-                : Column(
-                    children: topCount.take(5).map((e) {
-                      return _rankRow(
-                        theme,
-                        rank: e.rank > 0 ? e.rank : (topCount.indexOf(e) + 1),
-                        name: e.name,
-                        right:
-                            '${e.runCount} 次 · ${_fmtMs(e.avgTime)} · ${e.successRate}%',
-                      );
-                    }).toList(),
-                  ),
+                : _topCountTable(theme, topCount.take(5).toList()),
           ),
           if (labels.isNotEmpty) ...[
             const SizedBox(height: 12),
             _sectionCard(
               theme,
               title: '标签统计',
-              child: Column(
-                children: labels.map((e) {
-                  return _rankRow(
-                    theme,
-                    rank: null,
-                    name: e.label,
-                    right:
-                        '任务 ${e.count} · 今日 ${e.todayRuns} · ${e.successRate}% · ${_fmtMs(e.avgTime)}',
-                    chip: true,
-                  );
-                }).toList(),
-              ),
+              child: _labelsTable(theme, labels),
             ),
           ],
           const SizedBox(height: 12),
@@ -633,59 +601,172 @@ class StatsPageState extends ConsumerState<StatsPage> {
     );
   }
 
-  Widget _rankRow(
+  /// 对齐网页版 Table：# / 任务名 / 平均耗时 / 最长单次
+  Widget _topTimeTable(ThemeViewModel theme, List<RankItem> items) {
+    return Column(
+      children: [
+        _tableHeader(theme, const ['#', '定时任务', '平均耗时', '最长单次'], const [28.0, null, 78.0, 78.0]),
+        const SizedBox(height: 6),
+        ...List.generate(items.length, (i) {
+          final e = items[i];
+          final rank = e.rank > 0 ? e.rank : i + 1;
+          return _tableRow(
+            theme,
+            cells: [
+              '$rank',
+              e.name,
+              e.avgTime > 0 ? _fmtMs(e.avgTime) : '-',
+              e.maxTime > 0 ? _fmtMs(e.maxTime) : '-',
+            ],
+            widths: const [28.0, null, 78.0, 78.0],
+            emphasize: 1,
+          );
+        }),
+      ],
+    );
+  }
+
+  /// 对齐网页版 Table：# / 任务名 / 次数 / 平均耗时 / 成功率
+  Widget _topCountTable(ThemeViewModel theme, List<RankItem> items) {
+    return Column(
+      children: [
+        _tableHeader(theme, const ['#', '定时任务', '次数', '平均耗时', '成功率'], const [28.0, null, 44.0, 72.0, 58.0]),
+        const SizedBox(height: 6),
+        ...List.generate(items.length, (i) {
+          final e = items[i];
+          final rank = e.rank > 0 ? e.rank : i + 1;
+          return _tableRow(
+            theme,
+            cells: [
+              '$rank',
+              e.name,
+              '${e.runCount}',
+              e.avgTime > 0 ? _fmtMs(e.avgTime) : '-',
+              '${e.successRate}%',
+            ],
+            widths: const [28.0, null, 44.0, 72.0, 58.0],
+            emphasize: 1,
+          );
+        }),
+      ],
+    );
+  }
+
+  /// 对齐网页版标签统计表：标签 / 任务数 / 今日执行 / 成功率 / 平均耗时
+  Widget _labelsTable(ThemeViewModel theme, List<LabelStatItem> items) {
+    return Column(
+      children: [
+        _tableHeader(theme, const ['标签', '任务数', '今日执行', '成功率', '平均耗时'], const [null, 52.0, 64.0, 58.0, 72.0]),
+        const SizedBox(height: 6),
+        ...items.map((e) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: theme.primaryColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        e.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: theme.primaryColor),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 52,
+                  child: Text(
+                    '${e.count}',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(fontSize: 12, color: theme.themeColor.titleColor()),
+                  ),
+                ),
+                SizedBox(
+                  width: 64,
+                  child: Text(
+                    '${e.todayRuns}',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(fontSize: 12, color: theme.themeColor.titleColor()),
+                  ),
+                ),
+                SizedBox(
+                  width: 58,
+                  child: Text(
+                    '${e.successRate}%',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(fontSize: 12, color: theme.themeColor.titleColor()),
+                  ),
+                ),
+                SizedBox(
+                  width: 72,
+                  child: Text(
+                    e.avgTime > 0 ? _fmtMs(e.avgTime) : '-',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(fontSize: 12, color: theme.themeColor.descColor()),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _tableHeader(ThemeViewModel theme, List<String> titles, List<double?> widths) {
+    return Row(
+      children: List.generate(titles.length, (i) {
+        final w = widths[i];
+        final child = Text(
+          titles[i],
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: w == null ? TextAlign.left : TextAlign.right,
+          style: TextStyle(fontSize: 11, color: theme.themeColor.descColor()),
+        );
+        if (w == null) {
+          return Expanded(child: child);
+        }
+        return SizedBox(width: w, child: child);
+      }),
+    );
+  }
+
+  Widget _tableRow(
     ThemeViewModel theme, {
-    int? rank,
-    required String name,
-    required String right,
-    bool chip = false,
+    required List<String> cells,
+    required List<double?> widths,
+    int emphasize = -1,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
-        children: [
-          if (rank != null)
-            SizedBox(
-              width: 22,
-              child: Text(
-                '$rank',
-                style: TextStyle(fontSize: 13, color: theme.themeColor.descColor()),
-              ),
-            )
-          else if (chip)
-            Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: theme.primaryColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                name,
-                style: TextStyle(fontSize: 12, color: theme.primaryColor),
-              ),
+        children: List.generate(cells.length, (i) {
+          final w = widths[i];
+          final isName = i == emphasize;
+          final child = Text(
+            cells[i],
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: isName || w == null ? TextAlign.left : TextAlign.right,
+            style: TextStyle(
+              fontSize: isName ? 13 : 12,
+              color: isName ? theme.themeColor.titleColor() : theme.themeColor.descColor(),
             ),
-          if (!chip)
-            Expanded(
-              child: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 14, color: theme.themeColor.titleColor()),
-              ),
-            )
-          else
-            const Spacer(),
-          Flexible(
-            child: Text(
-              right,
-              textAlign: TextAlign.right,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, color: theme.themeColor.descColor()),
-            ),
-          ),
-        ],
+          );
+          if (w == null) {
+            return Expanded(child: child);
+          }
+          return SizedBox(width: w, child: child);
+        }),
       ),
     );
   }

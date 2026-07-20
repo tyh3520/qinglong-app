@@ -380,6 +380,9 @@ class MultiAccountPageState extends ConsumerState<MultiAccountPage>
       },
       child: Scaffold(
         resizeToAvoidBottomInset: false,
+        backgroundColor: CustomBg.pageBg(
+          Theme.of(context).scaffoldBackgroundColor,
+        ),
         body: !authenticated
             ? authWidget()
             : (list.length == 1

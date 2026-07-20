@@ -11,6 +11,7 @@ import 'package:qinglong_app/base/routes.dart';
 import 'package:qinglong_app/base/single_account_page.dart';
 import 'package:qinglong_app/base/sp_const.dart';
 import 'package:qinglong_app/base/theme.dart';
+import 'package:qinglong_app/base/ui/custom_bg.dart';
 import 'package:qinglong_app/base/ui/loading_widget.dart';
 import 'package:qinglong_app/base/ui/search_cell.dart';
 import 'package:qinglong_app/module/task/add_task_page.dart';
@@ -137,6 +138,7 @@ class TaskPageState extends ConsumerState<TaskPage>
           FocusScope.of(context).requestFocus(FocusNode());
         },
         child: Scaffold(
+          backgroundColor: CustomBg.pageBg(null),
           appBar: QlAppBar(
             title: "拉库管理",
             canClick2Vip: !editMode,
@@ -252,6 +254,7 @@ class TaskPageState extends ConsumerState<TaskPage>
         FocusScope.of(context).requestFocus(FocusNode());
       },
       child: Scaffold(
+        backgroundColor: CustomBg.pageBg(null),
         appBar: QlAppBar(
           title: (editMode && checkedIds.isNotEmpty) ? "当前选中 ${checkedIds.length} 个任务" : "定时任务",
           canClick2Vip: !editMode,

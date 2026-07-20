@@ -44,9 +44,9 @@ class _SettingPageState extends ConsumerState<SettingPage> {
     }
 
     return Scaffold(
-      backgroundColor: CustomBg.hasImage
-          ? Colors.transparent
-          : ref.watch(themeProvider).themeColor.bg2Color(),
+      backgroundColor: CustomBg.pageBg(
+        ref.watch(themeProvider).themeColor.bg2Color(),
+      ),
       appBar: QlAppBar(
         title: "系统设置",
       ),
@@ -996,12 +996,20 @@ class _SettingPageState extends ConsumerState<SettingPage> {
               ext == 'gif')
           ? ext
           : 'jpg';
-      final dest = File('${dir.path}/custom_app_bg.$safeExt');
-      if (await dest.exists()) {
-        await dest.delete();
-      }
+      // 用 token 做文件名，避免同路径覆盖后 Image 缓存不刷新
+      final token = DateTime.now().millisecondsSinceEpoch;
+      final dest = File('${dir.path}/custom_app_bg_${token}.$safeExt');
       await src.copy(dest.path);
+      // 清理旧背景文件
+      final old = CustomBg.path;
       await CustomBg.setPath(dest.path);
+      await CustomBg.setEnabled(true);
+      if (old.isNotEmpty && old != dest.path) {
+        try {
+          final f = File(old);
+          if (f.existsSync()) await f.delete();
+        } catch (_) {}
+      }
       "背景图已设置（全 app 生效）".toast();
       return true;
     } catch (e) {
