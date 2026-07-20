@@ -107,6 +107,13 @@ class Url {
 
   get appkeys => getIt<UserInfoViewModel>(instanceName: index.toString()).useSecretLogined ? "/open/apps" : "/api/apps";
 
+  // Qinglong 2.21.0+ dashboard / run stats
+  get dashboardOverview => getIt<UserInfoViewModel>(instanceName: index.toString()).useSecretLogined ? "/open/dashboard/overview" : "/api/dashboard/overview";
+  get dashboardTrend => getIt<UserInfoViewModel>(instanceName: index.toString()).useSecretLogined ? "/open/dashboard/trend" : "/api/dashboard/trend";
+  get dashboardRuntime => getIt<UserInfoViewModel>(instanceName: index.toString()).useSecretLogined ? "/open/dashboard/runtime" : "/api/dashboard/runtime";
+  get dashboardTopTime => getIt<UserInfoViewModel>(instanceName: index.toString()).useSecretLogined ? "/open/dashboard/top-time" : "/api/dashboard/top-time";
+  get dashboardTopCount => getIt<UserInfoViewModel>(instanceName: index.toString()).useSecretLogined ? "/open/dashboard/top-count" : "/api/dashboard/top-count";
+
   resetAppKey(dynamic id) {
     return getIt<UserInfoViewModel>(instanceName: index.toString()).useSecretLogined
         ? "/api/apps/${id.toString()}/reset-secret"

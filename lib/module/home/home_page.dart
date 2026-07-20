@@ -16,6 +16,7 @@ import 'package:qinglong_app/module/config/config_page.dart';
 import 'package:qinglong_app/module/env/env_page.dart';
 import 'package:qinglong_app/module/home/version_history_bean.dart';
 import 'package:qinglong_app/module/others/other_page.dart';
+import 'package:qinglong_app/module/stats/stats_page.dart';
 import 'package:qinglong_app/module/task/task_page.dart';
 import 'package:move_to_background/move_to_background.dart';
 import 'package:qinglong_app/utils/extension.dart';
@@ -204,6 +205,7 @@ class HomePageState extends ConsumerState<HomePage> {
 
   bool showMask = false;
 
+  GlobalKey<StatsPageState> statsKey = GlobalKey();
   GlobalKey<TaskPageState> taskKey = GlobalKey();
   GlobalKey<EnvPageState> envKey = GlobalKey();
   GlobalKey<OtherPageState> meKey = GlobalKey();
@@ -226,6 +228,11 @@ class HomePageState extends ConsumerState<HomePage> {
                   index: ref.watch<int>(SingleAccountPageState.ofHomeIndexProvider(context)(
                       getProviderName(context))),
                   children: [
+                    Positioned.fill(
+                      child: StatsPage(
+                        key: statsKey,
+                      ),
+                    ),
                     Positioned.fill(
                       child: TaskPage(
                         key: taskKey,
@@ -285,17 +292,14 @@ class HomePageState extends ConsumerState<HomePage> {
                           if (ref.read<int>((SingleAccountPageState.ofHomeIndexProvider(context)(
                                   getProviderName(context)))) ==
                               index) {
-                            if (ref.read<int>((SingleAccountPageState.ofHomeIndexProvider(context)(
-                                    getProviderName(context)))) ==
-                                0) {
+                            // 0 统计 / 1 任务 / 2 环境 / 4 我的
+                            if (index == 0) {
+                              await statsKey.currentState?.move2Top();
+                            } else if (index == 1) {
                               await taskKey.currentState?.move2Top();
-                            } else if (ref.read<int>((SingleAccountPageState.ofHomeIndexProvider(
-                                    context)(getProviderName(context)))) ==
-                                1) {
+                            } else if (index == 2) {
                               await envKey.currentState?.move2Top();
-                            } else if (ref.read<int>((SingleAccountPageState.ofHomeIndexProvider(
-                                    context)(getProviderName(context)))) ==
-                                3) {
+                            } else if (index == 4) {
                               await meKey.currentState?.move2Top();
                             }
                             return;
@@ -314,7 +318,8 @@ class HomePageState extends ConsumerState<HomePage> {
                         showSelectedLabels: true,
                         showUnselectedLabels: true,
                         onLongTap: (index) async {
-                          if (index == 3) {
+                          // 我的 tab（现为第 5 项，index=4）长按切换账号
+                          if (index == 4) {
                             HapticFeedback.mediumImpact();
                             setState(() {
                               showMask = true;
@@ -377,6 +382,14 @@ class HomePageState extends ConsumerState<HomePage> {
 
   void initTitles() {
     titles.clear();
+    // 统计放第一个：进 app 第一眼看数据；其余 tab 内容不动
+    titles.add(
+      IndexBean(
+        "assets/images/icon_task_log.png",
+        "assets/images/icon_task_log.png",
+        "统计",
+      ),
+    );
     titles.add(
       IndexBean(
         "assets/images/icon_cron.png",
@@ -414,6 +427,7 @@ class HomePageState extends ConsumerState<HomePage> {
       height: kBottomNavigationBarHeight,
       child: Row(
         children: [
+          const Spacer(),
           const Spacer(),
           const Spacer(),
           const Spacer(),

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:qinglong_app/base/http/http.dart';
 import 'package:qinglong_app/base/http/url.dart';
 import 'package:qinglong_app/main.dart';
@@ -12,6 +13,7 @@ import 'package:qinglong_app/module/others/login_log/login_log_bean.dart';
 import 'package:qinglong_app/module/others/scripts/script_bean.dart';
 import 'package:qinglong_app/module/others/task_log/task_log_bean.dart';
 import 'package:qinglong_app/module/others/update/check_update_bean.dart';
+import 'package:qinglong_app/module/stats/stats_bean.dart';
 import 'package:qinglong_app/module/task/task_bean.dart';
 
 import '../../module/task/TaskBean2.dart';
@@ -628,4 +630,94 @@ class Api {
       {},
     );
   }
+
+  // Qinglong 2.21.0+ dashboard APIs.
+  // Complex payloads use String + manual parse to avoid code-gen registration.
+  Future<HttpResponse<DashboardOverview>> dashboardOverview() async {
+    final resp = await getIt<Http>(instanceName: index.toString()).get<String>(
+      getIt<Url>(instanceName: index.toString()).dashboardOverview,
+      {},
+    );
+    if (!resp.success) {
+      return HttpResponse<DashboardOverview>(
+        success: false,
+        code: resp.code,
+        message: resp.message,
+      );
+    }
+    try {
+      final data = parseJsonObject(resp.bean ?? '{}');
+      return HttpResponse<DashboardOverview>(
+        success: true,
+        code: 200,
+        bean: DashboardOverview.fromJson(data),
+      );
+    } catch (e) {
+      return HttpResponse<DashboardOverview>(
+        success: false,
+        code: -1000,
+        message: 'json解析失败',
+      );
+    }
+  }
+
+  Future<HttpResponse<String>> dashboardTrend({int days = 7}) async {
+    return await getIt<Http>(instanceName: index.toString()).get<String>(
+      getIt<Url>(instanceName: index.toString()).dashboardTrend,
+      {"days": days.toString()},
+    );
+  }
+
+  Future<HttpResponse<RuntimeOverview>> dashboardRuntime() async {
+    final resp = await getIt<Http>(instanceName: index.toString()).get<String>(
+      getIt<Url>(instanceName: index.toString()).dashboardRuntime,
+      {},
+    );
+    if (!resp.success) {
+      return HttpResponse<RuntimeOverview>(
+        success: false,
+        code: resp.code,
+        message: resp.message,
+      );
+    }
+    try {
+      final data = parseJsonObject(resp.bean ?? '{}');
+      return HttpResponse<RuntimeOverview>(
+        success: true,
+        code: 200,
+        bean: RuntimeOverview.fromJson(data),
+      );
+    } catch (e) {
+      return HttpResponse<RuntimeOverview>(
+        success: false,
+        code: -1000,
+        message: 'json解析失败',
+      );
+    }
+  }
+
+  Future<HttpResponse<String>> dashboardTopTime() async {
+    return await getIt<Http>(instanceName: index.toString()).get<String>(
+      getIt<Url>(instanceName: index.toString()).dashboardTopTime,
+      {},
+    );
+  }
+
+  Future<HttpResponse<String>> dashboardTopCount() async {
+    return await getIt<Http>(instanceName: index.toString()).get<String>(
+      getIt<Url>(instanceName: index.toString()).dashboardTopCount,
+      {},
+    );
+  }
+}
+
+Map<String, dynamic> parseJsonObject(String raw) {
+  if (raw.isEmpty) return <String, dynamic>{};
+  try {
+    final obj = jsonDecode(raw);
+    if (obj is Map) {
+      return Map<String, dynamic>.from(obj);
+    }
+  } catch (_) {}
+  return <String, dynamic>{};
 }

@@ -45,4 +45,5 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 .fvm/
-/android/app/qinglong.keystore
+/android/app/qinglong.keystoredist/
+design/*.png

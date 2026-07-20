@@ -199,6 +199,38 @@ class SystemBean {
     }
   }
 
+
+  // 2.21.0 以及以上版本, 支持任务统计 / 运行实例 dashboard
+  bool isUpperVersion2_21_0() {
+    try {
+      List<String>? version1 = version?.split("\.");
+
+      String f = version1?[0] ?? "2";
+      String s = version1?[1] ?? "10";
+      String t = version1?[2] ?? "0";
+
+      if (f.length == 1) {
+        f = "0$f";
+      }
+      if (s.length == 1) {
+        s = "0$s";
+      }
+      if (t.length == 1) {
+        t = "0$t";
+      }
+
+      String tempSum = "$f$s$t";
+
+      if ((int.tryParse(tempSum) ?? 1) >= 022100) {
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = new Map<String, dynamic>();
     data['version'] = this.version;

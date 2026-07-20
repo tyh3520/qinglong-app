@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>qinglong app stats wireframe</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --card: #1a222c;
+    --card2: #222c38;
+    --line: #2d3a48;
+    --text: #e8eef5;
+    --muted: #8b9aab;
+    --green: #3ecf8e;
+    --red: #ff6b6b;
+    --blue: #5b9dff;
+    --yellow: #f0c14b;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+    background: #0a0e13;
+    color: var(--text);
+    padding: 24px;
+  }
+  h1 {
+    margin: 0 0 8px;
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  .row {
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .phone {
+    width: 360px;
+    background: var(--bg);
+    border: 1px solid #2a3542;
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 16px 50px rgba(0,0,0,.45);
+  }
+  .status {
+    height: 28px;
+    padding: 8px 18px 0;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+  }
+  .topbar {
+    padding: 10px 16px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar .title { font-size: 17px; font-weight: 700; }
+  .topbar .right { color: var(--muted); font-size: 12px; }
+  .content { padding: 14px 14px 18px; }
+  .label {
+    text-align: center;
+    margin: 0 0 10px;
+    color: var(--blue);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .5px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .card h3 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .metric {
+    background: var(--card2);
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .metric .k { font-size: 11px; color: var(--muted); }
+  .metric .v { font-size: 22px; font-weight: 700; margin-top: 4px; }
+  .metric .v.green { color: var(--green); }
+  .metric .v.red { color: var(--red); }
+  .metric .v.blue { color: var(--blue); }
+  .bar {
+    height: 8px;
+    background: #2a3542;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 10px;
+  }
+  .bar > i {
+    display: block;
+    height: 100%;
+    width: 93.8%;
+    background: linear-gradient(90deg, var(--green), #2fb57a);
+  }
+  .bar-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .list-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+  }
+  .list-item:first-child { border-top: 0; padding-top: 0; }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--red); flex: 0 0 auto;
+  }
+  .dot.run { background: var(--blue); }
+  .dot.ok { background: var(--green); }
+  .li-main { flex: 1; min-width: 0; }
+  .li-main .name {
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .li-main .desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .badge {
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--card2);
+    border-radius: 999px;
+    padding: 4px 8px;
+  }
+  .section-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 4px 2px 8px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .section-title a { color: var(--blue); font-size: 12px; text-decoration: none; }
+  .task-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .task-row:last-child { border-bottom: 0; }
+  .task-row .name { flex: 1; font-size: 13px; }
+  .pill {
+    font-size: 11px;
+    border-radius: 999px;
+    padding: 3px 8px;
+  }
+  .pill.on { background: rgba(91,157,255,.15); color: var(--blue); }
+  .pill.off { background: rgba(139,154,171,.12); color: var(--muted); }
+  .bottom {
+    border-top: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 8px 4px 12px;
+    background: #121820;
+  }
+  .tab {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    padding: 6px 0;
+  }
+  .tab.active { color: var(--blue); font-weight: 700; }
+  .chart {
+    height: 92px;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 8px 2px 0;
+  }
+  .chart .c {
+    flex: 1;
+    background: rgba(91,157,255,.25);
+    border-radius: 6px 6px 2px 2px;
+    position: relative;
+  }
+  .chart .c::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 28%;
+    background: rgba(255,107,107,.55);
+    border-radius: 0 0 2px 2px;
+  }
+  .chart .c:nth-child(1){height:55%}
+  .chart .c:nth-child(2){height:70%}
+  .chart .c:nth-child(3){height:48%}
+  .chart .c:nth-child(4){height:82%}
+  .chart .c:nth-child(5){height:63%}
+  .chart .c:nth-child(6){height:90%}
+  .chart .c:nth-child(7){height:76%}
+  .days {
+    display: grid;
+    grid-template-columns: repeat(7,1fr);
+    gap: 8px;
+    margin-top: 6px;
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+  }
+  .note {
+    max-width: 760px;
+    margin: 18px auto 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .tag {
+    display: inline-block;
+    border: 1px dashed #3a4a5c;
+    border-radius: 8px;
+    padding: 2px 6px;
+    margin-right: 6px;
+    color: #a9b7c7;
+  }
+</style>
+</head>
+<body>
+  <h1>qinglong-app · 运行统计草图 v0.1</h1>
+  <div class="sub">低保真 · 深色 · 首页概览卡 + 统计详情页 · 参考呆呆面板“一眼健康度”，手机信息密度更低</div>
+
+  <div class="row">
+    <!-- phone 1 home -->
+    <div>
+      <div class="label">A. 首页（任务页顶部嵌入）</div>
+      <div class="phone">
+        <div class="status"><span>17:42</span><span>5G · 86%</span></div>
+        <div class="topbar">
+          <div class="title">任务</div>
+          <div class="right">ql · 2.21.0</div>
+        </div>
+        <div class="content">
+          <div class="card">
+            <h3>今日运行 · 点卡片进详情 ›</h3>
+            <div class="metrics">
+              <div class="metric"><div class="k">总运行</div><div class="v">128</div></div>
+              <div class="metric"><div class="k">成功率</div><div class="v green">93.8%</div></div>
+              <div class="metric"><div class="k">成功 / 失败</div><div class="v" style="font-size:18px"><span class="green">120</span> / <span class="red">8</span></div></div>
+              <div class="metric"><div class="k">运行中</div><div class="v blue">3</div></div>
+            </div>
+            <div class="bar"><i></i></div>
+            <div class="bar-meta"><span>健康度良好</span><span>更新 17:40</span></div>
+          </div>
+
+          <div class="card">
+            <div class="section-title"><span>最近失败</span><a href="#">全部</a></div>
+            <div class="list-item">
+              <div class="dot"></div>
+              <div class="li-main">
+                <div class="name">oppo商城.py</div>
+                <div class="desc">退出码 1 · 2 分钟前</div>
+              </div>
+              <div class="badge">12s</div>
+            </div>
+            <div class="list-item">
+              <div class="dot"></div>
+              <div class="li-main">
+                <div class="name">同程旅行.js</div>
+                <div class="desc">超时 · 18 分钟前</div>
+              </div>
+              <div class="badge">60s</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title"><span>任务列表</span><span>搜索 / 筛选</span></div>
+            <div class="task-row"><div class="name">金价推送</div><div class="pill on">启用</div></div>
+            <div class="task-row"><div class="name">密浓三国四合一</div><div class="pill on">启用</div></div>
+            <div class="task-row"><div class="name">备份脚本</div><div class="pill off">禁用</div></div>
+          </div>
+        </div>
+        <div class="bottom">
+          <div class="tab active">任务</div>
+          <div class="tab">环境</div>
+          <div class="tab">配置</div>
+          <div class="tab">我的</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- phone 2 detail -->
+    <div>
+      <div class="label">B. 统计详情页</div>
+      <div class="phone">
+        <div class="status"><span>17:42</span><span>5G · 86%</span></div>
+        <div class="topbar">
+          <div class="title">‹ 运行统计</div>
+          <div class="right">近 7 天</div>
+        </div>
+        <div class="content">
+          <div class="card">
+            <h3>近 7 天运行趋势</h3>
+            <div class="chart">
+              <div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div>
+              <div class="c"></div><div class="c"></div><div class="c"></div>
+            </div>
+            <div class="days"><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span><span>一</span></div>
+            <div class="bar-meta" style="margin-top:10px"><span>蓝=成功占比</span><span>红=失败占比</span></div>
+          </div>
+
+          <div class="card">
+            <h3>运行实例 · 3 个进行中</h3>
+            <div class="list-item">
+              <div class="dot run"></div>
+              <div class="li-main">
+                <div class="name">金价推送</div>
+                <div class="desc">已运行 00:12 · pid 4421</div>
+              </div>
+              <div class="badge">停止</div>
+            </div>
+            <div class="list-item">
+              <div class="dot run"></div>
+              <div class="li-main">
+                <div class="name">订阅更新</div>
+                <div class="desc">已运行 01:03</div>
+              </div>
+              <div class="badge">停止</div>
+            </div>
+            <div class="list-item">
+              <div class="dot ok"></div>
+              <div class="li-main">
+                <div class="name">备份脚本</div>
+                <div class="desc">刚刚结束 · 成功</div>
+              </div>
+              <div class="badge">8s</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title"><span>失败 Top</span><a href="#">更多</a></div>
+            <div class="list-item">
+              <div class="dot"></div>
+              <div class="li-main">
+                <div class="name">oppo商城.py</div>
+                <div class="desc">今日失败 4 次</div>
+              </div>
+              <div class="badge">查看</div>
+            </div>
+            <div class="list-item">
+              <div class="dot"></div>
+              <div class="li-main">
+                <div class="name">同程旅行.js</div>
+                <div class="desc">今日失败 2 次</div>
+              </div>
+              <div class="badge">查看</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title"><span>最慢任务</span><span>按平均耗时</span></div>
+            <div class="list-item">
+              <div class="dot ok"></div>
+              <div class="li-main">
+                <div class="name">订阅更新</div>
+                <div class="desc">avg 46s</div>
+              </div>
+              <div class="badge">慢</div>
+            </div>
+            <div class="list-item">
+              <div class="dot ok"></div>
+              <div class="li-main">
+                <div class="name">全量备份</div>
+                <div class="desc">avg 31s</div>
+              </div>
+              <div class="badge">慢</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <div><span class="tag">原则</span>一眼健康度 · 失败优先 · 少图表 · 可点进详情</div>
+    <div style="margin-top:6px"><span class="tag">不做</span>首页堆 4+ 大图 · 复杂筛选默认展开 · 颜色过多</div>
+    <div style="margin-top:6px"><span class="tag">数据来源</span>2.21.0 任务统计 / 运行实例（示意数字，非真实接口字段）</div>
+  </div>
+</body>
+</html>
