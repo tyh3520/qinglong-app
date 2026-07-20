@@ -203,11 +203,25 @@ class SystemBean {
   // 2.21.0 以及以上版本, 支持任务统计 / 运行实例 dashboard
   bool isUpperVersion2_21_0() {
     try {
-      List<String>? version1 = version?.split("\.");
-
-      String f = version1?[0] ?? "2";
-      String s = version1?[1] ?? "10";
-      String t = version1?[2] ?? "0";
+      // 兼容 "v2.20.2" / "2.20.2-xxx" 等格式
+      final raw = (version ?? '').trim();
+      final m = RegExp(r'(\d+)\.(\d+)\.(\d+)').firstMatch(raw);
+      String f;
+      String s;
+      String t;
+      if (m != null) {
+        f = m.group(1)!;
+        s = m.group(2)!;
+        t = m.group(3)!;
+      } else {
+        List<String>? version1 = raw.split(".");
+        f = version1.isNotEmpty ? version1[0].replaceAll(RegExp(r'[^0-9]'), '') : "2";
+        s = version1.length > 1 ? version1[1].replaceAll(RegExp(r'[^0-9]'), '') : "10";
+        t = version1.length > 2 ? version1[2].replaceAll(RegExp(r'[^0-9]'), '') : "0";
+        if (f.isEmpty) f = "2";
+        if (s.isEmpty) s = "10";
+        if (t.isEmpty) t = "0";
+      }
 
       if (f.length == 1) {
         f = "0$f";

@@ -87,10 +87,28 @@ class StatsPageState extends ConsumerState<StatsPage> {
     }
   }
 
+  /// 低版本青龙没有 /api/dashboard/* 时，常见 html 404 / 非 json 体，
+  /// http 层会落到 message=json解析失败、code=-1000。
+  bool _isDashboardUnsupportedResp(HttpResponse resp) {
+    final msg = (resp.message ?? '').toLowerCase();
+    final code = resp.code;
+    if (code == 404 || code == -1000) return true;
+    return msg.contains('not found') ||
+        msg.contains('404') ||
+        msg.contains('cannot get') ||
+        msg.contains('json解析失败') ||
+        msg.contains('json') && msg.contains('parse') ||
+        msg.contains('unexpected token') ||
+        msg.contains('syntaxerror') ||
+        msg.contains('no such file') ||
+        msg.contains('cannot find');
+  }
+
   Future<void> loadData({bool showLoading = false}) async {
     if (!mounted) return;
 
     final systemBean = _trySystemBean();
+    // 明确低于 2.21.0：直接友好提示，不打 dashboard 接口
     if (systemBean != null && !systemBean.isUpperVersion2_21_0()) {
       setState(() {
         unsupported = true;
@@ -111,6 +129,18 @@ class StatsPageState extends ConsumerState<StatsPage> {
     try {
       final api = SingleAccountPageState.ofApi(context);
       final overviewResp = await api.dashboardOverview();
+
+      // 版本号偶发拿不到 / 判断失败时，用 overview 探测是否支持仪表盘
+      if (!overviewResp.success && _isDashboardUnsupportedResp(overviewResp)) {
+        if (!mounted) return;
+        setState(() {
+          unsupported = true;
+          loading = false;
+          error = null;
+        });
+        return;
+      }
+
       final trendResp = await api.dashboardTrend(days: 7);
       final runtimeResp = await api.dashboardRuntime();
       final topTimeResp = await api.dashboardTopTime();
@@ -119,11 +149,7 @@ class StatsPageState extends ConsumerState<StatsPage> {
       final labelsResp = await api.dashboardLabels();
 
       if (!overviewResp.success) {
-        final msg = (overviewResp.message ?? '').toLowerCase();
-        if (msg.contains('not found') ||
-            msg.contains('404') ||
-            msg.contains('cannot get') ||
-            overviewResp.code == 404) {
+        if (_isDashboardUnsupportedResp(overviewResp)) {
           if (!mounted) return;
           setState(() {
             unsupported = true;
@@ -153,9 +179,19 @@ class StatsPageState extends ConsumerState<StatsPage> {
       });
     } catch (e) {
       if (!mounted) return;
+      final msg = e.toString().toLowerCase();
+      final lookLikeUnsupported = msg.contains('json') ||
+          msg.contains('404') ||
+          msg.contains('not found') ||
+          msg.contains('format');
       setState(() {
         loading = false;
-        error = e.toString();
+        if (lookLikeUnsupported) {
+          unsupported = true;
+          error = null;
+        } else {
+          error = e.toString();
+        }
       });
     }
   }
