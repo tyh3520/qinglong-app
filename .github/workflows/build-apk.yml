@@ -23,7 +23,9 @@ jobs:
       - name: setup flutter
         uses: subosito/flutter-action@v2
         with:
-          # pin a stable channel; adjust if build fails on older deps
+          # this app targets dart 2.x (sdk: ">=2.18.0 <3.0.0")
+          # flutter 3.7.x is the last line that still ships dart 2.19
+          flutter-version: "3.7.12"
           channel: stable
           cache: true
 
