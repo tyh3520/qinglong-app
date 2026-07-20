@@ -368,105 +368,12 @@ class StatsPageState extends ConsumerState<StatsPage> {
               children: [
                 _miniTag(theme, '运行中 ${runtime.runningCount}', const Color(0xff1677ff)),
                 const SizedBox(width: 6),
-                _miniTag(theme, '排队 ${runtime.queuedCount}', const Color(0xfffa8c16)),
+                // 对齐网页文案：排队中
+                _miniTag(theme, '排队中 ${runtime.queuedCount}', const Color(0xfffa8c16)),
               ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (runtime.running.isEmpty)
-                  _emptyLine(theme, '暂无运行中任务')
-                else
-                  ...runtime.running.map((item) {
-                    final same = runtime.running.where((r) => r.id == item.id).length;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        item.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: theme.themeColor.titleColor(),
-                                        ),
-                                      ),
-                                    ),
-                                    if (same > 1) ...[
-                                      const SizedBox(width: 4),
-                                      _miniTag(theme, '×$same', const Color(0xff1677ff)),
-                                    ],
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'pid ${item.pid ?? '-'} · 已运行 ${_fmtSec(item.elapsed)}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: theme.themeColor.descColor(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          CupertinoButton(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            minSize: 28,
-                            onPressed: () => stopRunning(item),
-                            child: Text(
-                              '停止',
-                              style: TextStyle(fontSize: 13, color: theme.primaryColor),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                if (runtime.idleTasks.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    '24小时未运行 (${runtime.idleTasks.length})',
-                    style: const TextStyle(fontSize: 13, color: Color(0xffff7a00)),
-                  ),
-                  const SizedBox(height: 6),
-                  ...runtime.idleTasks.map((e) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              e.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: theme.themeColor.titleColor(),
-                              ),
-                            ),
-                          ),
-                          Text(
-                            e.lastRun,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.themeColor.descColor(),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                ],
-              ],
-            ),
+            // 对齐网页 Table：定时任务 / PID / 已运行 / 停止
+            child: _runtimeBlock(theme),
           ),
           const SizedBox(height: 12),
           _sectionCard(
@@ -538,6 +445,151 @@ class StatsPageState extends ConsumerState<StatsPage> {
           }).toList(),
         );
       },
+    );
+  }
+
+  /// 对齐网页「实时运行态」Table：
+  /// 运行中：定时任务 / PID / 已运行 / 停止
+  /// 24h 未运行：任务名 / lastRun（无表头）
+  Widget _runtimeBlock(ThemeViewModel theme) {
+    // 手机宽度有限：名称列弹性，PID / 已运行 / 操作列固定
+    const widths = <double?>[null, 56.0, 72.0, 44.0];
+    final running = runtime.running;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (running.isEmpty)
+          _emptyLine(theme, '暂无运行中任务')
+        else ...[
+          _tableHeader(theme, const ['定时任务', 'PID', '已运行', '操作'], widths),
+          Divider(height: 12, thickness: 0.5, color: theme.themeColor.settingBordorColor()),
+          ...List.generate(running.length, (i) {
+            final item = running[i];
+            final same = running.where((r) => r.id == item.id).length;
+            return _runtimeRunningRow(
+              theme,
+              item: item,
+              sameCount: same,
+              widths: widths,
+              zebra: i.isOdd,
+            );
+          }),
+        ],
+        if (runtime.idleTasks.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(
+            '24小时未运行 (${runtime.idleTasks.length})',
+            style: const TextStyle(fontSize: 13, color: Color(0xffff7a00)),
+          ),
+          const SizedBox(height: 6),
+          // 网页 idle 表 showHeader=false：任务名 + lastRun
+          ...List.generate(runtime.idleTasks.length, (i) {
+            final e = runtime.idleTasks[i];
+            return _tableRow(
+              theme,
+              cells: [e.name, e.lastRun],
+              widths: const [null, 110.0],
+              emphasize: 0,
+              zebra: i.isOdd,
+            );
+          }),
+        ],
+      ],
+    );
+  }
+
+  Widget _runtimeRunningRow(
+    ThemeViewModel theme, {
+    required RunningInstanceItem item,
+    required int sameCount,
+    required List<double?> widths,
+    bool zebra = false,
+  }) {
+    final nameStyle = TextStyle(
+      fontSize: 13,
+      height: 1.25,
+      color: theme.themeColor.titleColor(),
+    );
+    final cellStyle = TextStyle(
+      fontSize: 12,
+      height: 1.25,
+      color: theme.themeColor.titleColor(),
+    );
+
+    final nameCell = Row(
+      children: [
+        Flexible(
+          child: Text(
+            item.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: nameStyle,
+          ),
+        ),
+        if (sameCount > 1) ...[
+          const SizedBox(width: 4),
+          _miniTag(theme, '×$sameCount', const Color(0xff1677ff)),
+        ],
+      ],
+    );
+
+    final row = Row(
+      children: [
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: nameCell,
+          ),
+        ),
+        SizedBox(
+          width: widths[1],
+          child: Text(
+            '${item.pid ?? '-'}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: cellStyle,
+          ),
+        ),
+        SizedBox(
+          width: widths[2],
+          child: Text(
+            _fmtSec(item.elapsed),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: cellStyle,
+          ),
+        ),
+        SizedBox(
+          width: widths[3],
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => stopRunning(item),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Text(
+                  '停止',
+                  style: TextStyle(fontSize: 12, color: theme.primaryColor),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+      decoration: BoxDecoration(
+        color: zebra ? theme.themeColor.settingBordorColor().withOpacity(0.18) : null,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: row,
     );
   }
 
