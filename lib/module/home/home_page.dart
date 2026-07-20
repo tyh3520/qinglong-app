@@ -295,7 +295,7 @@ class HomePageState extends ConsumerState<HomePage> {
                           if (ref.read<int>((SingleAccountPageState.ofHomeIndexProvider(context)(
                                   getProviderName(context)))) ==
                               index) {
-                            // 0 统计 / 1 任务 / 2 环境 / 4 我的
+                            // 0 仪表盘 / 1 任务 / 2 环境 / 4 我的
                             if (index == 0) {
                               await statsKey.currentState?.move2Top();
                             } else if (index == 1) {
@@ -385,13 +385,13 @@ class HomePageState extends ConsumerState<HomePage> {
 
   void initTitles() {
     titles.clear();
-    // 统计放第一个：进 app 第一眼看数据；其余 tab 内容不动
+    // 仪表盘放第一个：进 app 第一眼看数据；其余 tab 内容不动
     // icon 样式对齐原底部 tab：未选中灰 / 选中绿 60x60
     titles.add(
       IndexBean(
         "assets/images/icon_stats.png",
         "assets/images/icon_stats_checked.png",
-        "统计",
+        "仪表盘",
       ),
     );
     titles.add(
