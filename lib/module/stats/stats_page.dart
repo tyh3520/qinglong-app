@@ -472,12 +472,6 @@ class StatsPageState extends ConsumerState<StatsPage> {
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 8),
-                            Text(
-                              '数据来自青龙 /api/dashboard · 下拉刷新',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 11, color: theme.themeColor.descColor()),
-                            ),
                             SizedBox(height: MediaQuery.of(context).padding.bottom + 12),
                           ],
                         ),
@@ -662,7 +656,7 @@ class _TrendBars extends StatelessWidget {
                       Container(
                         height: successH < 0 ? 0 : successH,
                         decoration: BoxDecoration(
-                          color: theme.primaryColor.withOpacity(0.75),
+                          color: const Color(0xff3ecf8e).withOpacity(0.9),
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
                         ),
                       ),
@@ -691,7 +685,7 @@ class _TrendBars extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          '蓝=成功  红=失败',
+          '绿=成功  红=失败',
           style: TextStyle(fontSize: 11, color: theme.themeColor.descColor()),
         ),
       ],
