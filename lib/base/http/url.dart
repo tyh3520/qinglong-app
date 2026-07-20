@@ -86,6 +86,9 @@ class Url {
 
   get scriptDetail => getIt<UserInfoViewModel>(instanceName: index.toString()).useSecretLogined ? "/open/scripts" : "/api/scripts";
   get scriptDetailForReadFile => getIt<UserInfoViewModel>(instanceName: index.toString()).useSecretLogined ? "/open/scripts/" : "/api/scripts/";
+  // Prefer query-style detail endpoint: avoids putting Chinese/mixed-case names into URL path.
+  // Qinglong >=2.20.2 rejects path case variations with "Invalid path format".
+  get scriptDetailByQuery => getIt<UserInfoViewModel>(instanceName: index.toString()).useSecretLogined ? "/open/scripts/detail" : "/api/scripts/detail";
 
   get dependencies => getIt<UserInfoViewModel>(instanceName: index.toString()).useSecretLogined ? "/open/dependencies" : "/api/dependencies";
 

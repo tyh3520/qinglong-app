@@ -482,10 +482,16 @@ class Api {
   }
 
   Future<HttpResponse<String>> scriptDetail(String name, String? path) async {
+    // Qinglong 2.20.2+ blocks URL paths whose case changes after toLowerCase()
+    // ("Invalid path format"). Percent-encoded Chinese filenames use uppercase hex
+    // (%E5 vs %e5), so GET /api/scripts/{filename} fails for many script names.
+    // Use /scripts/detail?file=&path= instead: path stays all-lowercase ASCII.
+    final String safePath = (path == null || path.isEmpty || path == "/") ? "" : path;
     return await getIt<Http>(instanceName: index.toString()).get<String>(
-      getIt<Url>(instanceName: index.toString()).scriptDetailForReadFile + name,
+      getIt<Url>(instanceName: index.toString()).scriptDetailByQuery,
       {
-        "path": path,
+        "file": name,
+        "path": safePath,
       },
     );
   }

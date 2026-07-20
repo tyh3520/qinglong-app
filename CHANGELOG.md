@@ -1,3 +1,8 @@
+## 3.0.1
+
+* 修复点开脚本编辑页报 `Invalid path format`（对齐青龙 2.20.2 path 安全校验）
+* 读取脚本内容改为 `GET /api/scripts/detail?file=&path=`，避免中文/混合大小写文件名走 URL path
+
 ## 2.6.3
 
 * 修改环境变量最后一条可能无法展示完整的问题
