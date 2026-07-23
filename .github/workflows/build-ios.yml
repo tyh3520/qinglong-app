@@ -1,0 +1,92 @@
+name: build-ios
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "ios-v*"
+
+jobs:
+  ios:
+    runs-on: macos-13
+    timeout-minutes: 90
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup flutter
+        uses: subosito/flutter-action@v2
+        with:
+          # app targets dart 2.x (sdk: ">=2.18.0 <3.0.0")
+          # flutter 3.7.x is the last line that still ships dart 2.19
+          flutter-version: "3.7.12"
+          channel: stable
+          cache: true
+
+      - name: flutter doctor
+        run: flutter doctor -v
+
+      - name: pub get
+        run: flutter pub get
+
+      - name: install cocoapods deps
+        working-directory: ios
+        run: |
+          set -e
+          pod repo update || true
+          pod install
+
+      - name: build ios (no codesign)
+        run: |
+          set -e
+          flutter build ios --release --no-codesign
+
+      - name: package unsigned ipa
+        run: |
+          set -e
+          APP_PATH="build/ios/iphoneos/Runner.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Runner.app not found, listing build/ios:"
+            find build/ios -maxdepth 4 -type d -print || true
+            exit 1
+          fi
+          VERSION=$(python3 - <<'PY'
+          from pathlib import Path
+          text = Path("pubspec.yaml").read_text(encoding="utf-8")
+          for line in text.splitlines():
+              if line.startswith("version:"):
+                  print(line.split(":", 1)[1].strip().split("+")[0])
+                  break
+          else:
+              print("0.0.0")
+          PY
+          )
+          OUT_DIR="build/ios/ipa"
+          mkdir -p "$OUT_DIR/Payload"
+          rm -rf "$OUT_DIR/Payload/Runner.app"
+          cp -R "$APP_PATH" "$OUT_DIR/Payload/Runner.app"
+          IPA_NAME="qinglong-app-${VERSION}-ios-unsigned.ipa"
+          (
+            cd "$OUT_DIR"
+            zip -qry "$IPA_NAME" Payload
+          )
+          echo "IPA=$OUT_DIR/$IPA_NAME" >> "$GITHUB_ENV"
+          ls -lh "$OUT_DIR/$IPA_NAME"
+
+      - name: upload ipa artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qinglong-app-ios-unsigned
+          path: build/ios/ipa/*.ipa
+          if-no-files-found: error
+
+      - name: create release on tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/ios/ipa/*.ipa
+          body: |
+            ios 未签名包（`--no-codesign`）。
+            真机安装需要自行用 apple 开发者证书 / 企业签 / 第三方签名工具重签。
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
